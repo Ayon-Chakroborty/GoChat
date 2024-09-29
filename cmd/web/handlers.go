@@ -3,7 +3,7 @@ package main
 import "net/http"
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Show About Page"))
+	app.render(w, r, http.StatusOK, "signup.html", app.newTemplateData(r))
 }
 
 func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
