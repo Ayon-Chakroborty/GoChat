@@ -31,7 +31,7 @@ func (m *UserModel) Insert(username, email, password string) error{
 	stmt := `INSERT INTO users (username, email, hashed_password, created)
 	VALUES(?, ?, ?, UTC_TIMESTAMP())`
 
-	_, err = m.DB.Exec(stmt, username, email, hashedPassword)
+	_, err = m.DB.Exec(stmt, username, email, string(hashedPassword))
 	if err != nil{
 		var mySQLError *mysql.MySQLError
 		if errors.As(err, &mySQLError){
@@ -43,4 +43,33 @@ func (m *UserModel) Insert(username, email, password string) error{
 	}
 
 	return nil
+}
+
+func (m *UserModel) Authenticate(email, password string) (int, error){
+	var id int
+	var hashedPassword []byte
+
+	stmt := "SELECT id, hashed_password FROM users where email = ?"
+
+	// check if account exists with this email
+	err := m.DB.QueryRow(stmt, email).Scan(&id, &hashedPassword)
+	if err != nil{
+		if errors.Is(err, sql.ErrNoRows){
+			return 0, ErrInvalidCredentials
+		} else{
+			return 0, err
+		}
+	}
+
+	// check if the user given password matches the hashed password
+	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
+	if err != nil{
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword){
+			return 0, ErrInvalidCredentials
+		} else{
+			return 0, err
+		}
+	}
+
+	return id, nil
 }
