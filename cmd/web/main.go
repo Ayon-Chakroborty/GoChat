@@ -1,22 +1,29 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"flag"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
-	"html/template"
+	"time"
 
 	"gochat.ayonchakroborty.net/internal/models"
 
+	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-playground/form/v4"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type application struct {
-	logger    *slog.Logger
-	userModel *models.UserModel
-	templateCache map[string]*template.Template
+	logger         *slog.Logger
+	userModel      *models.UserModel
+	templateCache  map[string]*template.Template
+	formDecoder    *form.Decoder
+	sessionManager *scs.SessionManager
 }
 
 func main() {
@@ -27,7 +34,7 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	db, err := openDB(*dsn)
-	if err != nil{
+	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
@@ -35,20 +42,43 @@ func main() {
 	defer db.Close()
 
 	templateCache, err := newTemplateCache()
-	if err != nil{
+	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
 
+	formDecoder := form.NewDecoder()
+
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db)
+	sessionManager.Lifetime = 12 * time.Hour
+	sessionManager.Cookie.Secure = true
+
 	app := application{
-		logger: logger,
-		userModel: &models.UserModel{DB: db},
-		templateCache: templateCache,
+		logger:         logger,
+		userModel:      &models.UserModel{DB: db},
+		templateCache:  templateCache,
+		formDecoder:    formDecoder,
+		sessionManager: sessionManager,
 	}
 
-	logger.Info("starting server", "addr", *addr)
+	tlsConfig := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
 
-	err = http.ListenAndServe(*addr, app.routes())
+	srv := &http.Server{
+		Addr:         *addr,
+		Handler:      app.routes(),
+		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		TLSConfig:    tlsConfig,
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	logger.Info("starting server", "addr", srv.Addr)
+
+	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 	logger.Error(err.Error())
 	os.Exit(1)
 
