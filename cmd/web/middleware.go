@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+
+	"github.com/justinas/nosurf"
 )
 
-func commonHeaders(next http.Handler) http.Handler{
+func commonHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy",
-		"default-src 'self'; style-src 'self' fonts.googleapis.com; font-src fonts.gstatic.com")
+			"default-src 'self'; style-src 'self' fonts.googleapis.com; font-src fonts.gstatic.com")
 
 		w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -21,13 +24,13 @@ func commonHeaders(next http.Handler) http.Handler{
 	})
 }
 
-func (app *application) logRequest(next http.Handler) http.Handler{
+func (app *application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var(
-			ip = r.RemoteAddr
-			proto = r.Proto
+		var (
+			ip     = r.RemoteAddr
+			proto  = r.Proto
 			method = r.Method
-			uri = r.URL.RequestURI()
+			uri    = r.URL.RequestURI()
 		)
 
 		app.logger.Info("received request", "ip", ip, "proto", proto, "method", method, "uri", uri)
@@ -36,10 +39,10 @@ func (app *application) logRequest(next http.Handler) http.Handler{
 	})
 }
 
-func (app *application) recoverPanic(next http.Handler) http.Handler{
+func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func(){
-			if err := recover(); err != nil{
+		defer func() {
+			if err := recover(); err != nil {
 				w.Header().Set("Connection", "close")
 				app.serverError(w, r, fmt.Errorf("%s", err))
 			}
@@ -49,9 +52,9 @@ func (app *application) recoverPanic(next http.Handler) http.Handler{
 	})
 }
 
-func (app *application) requireAuthentication(next http.Handler) http.Handler{
+func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.isAuthenticated(r){
+		if !app.isAuthenticated(r) {
 			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 			return
 		}
@@ -62,3 +65,40 @@ func (app *application) requireAuthentication(next http.Handler) http.Handler{
 	})
 }
 
+func noSurf(next http.Handler) http.Handler {
+	csrfHandler := nosurf.New(next)
+	csrfHandler.SetBaseCookie(http.Cookie{
+		HttpOnly: true,
+		Path:     "/",
+		Secure:   true,
+	})
+
+	return csrfHandler
+}
+
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+		
+		// if id == 0 then authenticatedUserID does not exist in the session
+		if id == 0{
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if id exists in the DB
+		exists, err := app.userModel.Exists(id)
+		if err != nil{
+			app.serverError(w, r, err)
+			return
+		}
+
+		// update the request context if the user exists
+		if exists{
+			ctx := context.WithValue(r.Context(), isAuthenticatedContextKey, true)
+			r = r.WithContext(ctx)
+		}
+		
+		next.ServeHTTP(w, r)
+	})
+}
