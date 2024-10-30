@@ -1,10 +1,14 @@
 {{define "nav"}} 
     <nav>
         <div>
-            <a href="/">Home</a>
+            <a href="/">About</a>
+            {{if .IsAuthenticated}}
+                <a href="/chat">Chat</a>
+            {{end}}
         </div>
         <div>
             {{if .IsAuthenticated}}
+                <a href="/user/account">Account</a>
                 <form action="/user/logout" method="POST">
                     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
                     <button>Logout</button>

@@ -24,6 +24,8 @@ func (app *application) routes() http.Handler {
 	protected := dynamic.Append(app.requireAuthentication)
 
 	mux.Handle("POST /user/logout", protected.ThenFunc(app.userLogoutPost))
+	mux.Handle("GET /chat", protected.ThenFunc(app.chat))
+	mux.Handle("GET /user/account", protected.ThenFunc(app.userAccount))
 
 	standard := alice.New(app.recoverPanic, app.logRequest, commonHeaders)
 
