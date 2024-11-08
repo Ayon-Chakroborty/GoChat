@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gochat.ayonchakroborty.net/internal/models"
+	"gochat.ayonchakroborty.net/internal/websocket"
 
 	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
@@ -24,6 +25,7 @@ type application struct {
 	templateCache  map[string]*template.Template
 	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
+	wsManager      *websocket.Manager
 }
 
 func main() {
@@ -60,6 +62,7 @@ func main() {
 		templateCache:  templateCache,
 		formDecoder:    formDecoder,
 		sessionManager: sessionManager,
+		wsManager:      websocket.NewManager(),
 	}
 
 	tlsConfig := &tls.Config{
