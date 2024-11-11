@@ -37,6 +37,33 @@
     // selectedchat is by default General.
     var selectedchat = "general";
 
+    class Event {
+        constructor(type, payload){
+            this.type = type;
+            this.payload = payload;
+        }
+    }
+
+    function routeEvent(event){
+        if (event.type === undefined) {
+            alert('no type field in the event');
+        }
+
+        switch(event.type){
+            case "new_message":
+                console.log("new message");
+                break;
+            default:
+                alert("unsupported message type");
+                break;
+        }
+    }
+
+    function sendEvent(eventName, payload){
+        const event = new Event(eventName, payload);
+        conn.send(JSON.stringify(event));
+    }
+
     /**
      * changeChatRoom will update the value of selectedchat
      * and also notify the server that it changes chatroom
@@ -55,7 +82,7 @@
     function sendMessage() {
         var newmessage = document.getElementById("message");
         if (newmessage != null) {
-            console.log(newmessage);
+            sendEvent("send_message", newmessage.value)
         }
         return false;
     }
@@ -73,6 +100,12 @@
             console.log("supports websockets");
             // Connect to websocket
             conn = new WebSocket("wss://" + document.location.host + "/ws")
+
+            conn.onmessage = function(evt){
+                const eventData = JSON.parse(evt.data);
+                const event = Object.assign(new Event, eventData);
+                routeEvent(event);
+            }
         } else {
             alert("Not supporting websockets");
         }
