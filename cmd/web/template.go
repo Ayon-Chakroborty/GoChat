@@ -13,6 +13,7 @@ type templateData struct {
 	CurrentYear     int
 	Form            any
 	Flash           string
+	Email           string
 	IsAuthenticated bool
 	CSRFToken       string
 }
@@ -21,6 +22,7 @@ func (app *application) newTemplateData(r *http.Request) templateData {
 	return templateData{
 		CurrentYear:     time.Now().Year(),
 		Flash:           app.sessionManager.PopString(r.Context(), "flash"),
+		Email:           app.sessionManager.GetString(r.Context(), "email"),
 		IsAuthenticated: app.isAuthenticated(r),
 		CSRFToken:       nosurf.Token(r),
 	}
@@ -48,10 +50,10 @@ func newTemplateCache() (map[string]*template.Template, error) {
 		}
 
 		ts, err = ts.ParseFiles(page)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
-		
+
 		cache[name] = ts
 	}
 

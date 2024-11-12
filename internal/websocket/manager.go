@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 var (
 	WebsocketUpgrader = websocket.Upgrader{
-		CheckOrigin: checkOrigin,
+		CheckOrigin:     checkOrigin,
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
@@ -41,11 +42,32 @@ func (m *Manager) setupEventHandlers() {
 }
 
 func SendMessage(event Event, c *Client) error {
-	message, err := json.Marshal(event.Payload)
-	if err != nil{
-		return err
+	var chatEvent SendMessageEvent
+
+	if err := json.Unmarshal(event.Payload, &chatEvent); err != nil {
+		return fmt.Errorf("bad payload in request: %v", err)
 	}
-	fmt.Println(event, "Message:", string(message))
+
+	var broadMessage NewMessageEvent
+
+	broadMessage.Sent = time.Now()
+	broadMessage.Message = chatEvent.Message
+	broadMessage.From = chatEvent.From
+
+	data, err := json.Marshal(broadMessage)
+	if err != nil{
+		return fmt.Errorf("failed to marshal broadcast message : %v", err)
+	}
+
+	outgoingEvent := Event{
+		Payload: data,
+		Type: EventNewMessage,
+	}
+
+	for client := range c.manager.clients{
+		client.egress <- outgoingEvent
+	}
+	
 	return nil
 }
 
@@ -96,10 +118,10 @@ func (m *Manager) removeClient(client *Client) {
 	}
 }
 
-func checkOrigin(r *http.Request) bool{
+func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 
-	switch origin{
+	switch origin {
 	case "https://localhost:4000":
 		return true
 	default:

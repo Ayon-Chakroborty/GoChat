@@ -22,6 +22,18 @@ type UserModel struct{
 	DB *sql.DB
 }
 
+func (m *UserModel) GetUserName(email string) (string, error){
+	var username string
+
+	stmt := `SELECT username FROM users WHERE email = ?`
+
+	if err := m.DB.QueryRow(stmt, email).Scan(&username); err != nil{
+		return "", err
+	}
+
+	return username, nil
+}
+
 func (m *UserModel) Insert(username, email, password string) error{
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"gochat.ayonchakroborty.net/internal/models"
@@ -135,6 +136,7 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
+	app.sessionManager.Put(r.Context(), "email", form.Email)
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -154,11 +156,14 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) chat(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+	log.Println("User Email:", data.Email)
 	app.render(w, r, http.StatusOK, "chat.html", app.newTemplateData(r))
 }
 
 func (app *application) userAccount(w http.ResponseWriter, r *http.Request){
 	data := app.newTemplateData(r)
 	data.Form = userSignupForm{}
+	log.Println("User Email in userAccount Handler:", data.Email)
 	app.render(w, r, http.StatusOK, "account.html", data)
 }
