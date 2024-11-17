@@ -26,6 +26,7 @@
     Chatroom-message form is used to send messages
     -->
     <form id="chatroom-message">
+        <input type="text" id="username" value="{{.Username}}">
         <label for="message">Message:</label>
         <input type="text" id="message" name="message"><br><br>
         <input type="submit" value="Send message">
@@ -37,25 +38,92 @@
     // selectedchat is by default General.
     var selectedchat = "general";
 
-    /**
-     * changeChatRoom will update the value of selectedchat
-     * and also notify the server that it changes chatroom
-     * */
-    function changeChatRoom() {
-        // Change Header to reflect the Changed chatroom
-        var newchat = document.getElementById("chatroom");
-        if (newchat != null && newchat.value != selectedchat) {
-            console.log(newchat);
+    class Event {
+        constructor(type, payload){
+            this.type = type;
+            this.payload = payload;
         }
+    }
+
+    class SendMessageEvent {
+        constructor(message, from){
+            this.message = message;
+            this.from = from;
+        }
+    }
+
+    class NewMessageEvent {
+        constructor(message, from, sent){
+            this.message = message;
+            this.from = from;
+            this.sent = sent;
+        }
+    }
+
+    class ChangeChatRoomEvent {
+        constructor(name){
+            this.name = name;
+        }
+    }
+
+    function changeChatRoom(){
+        var newchat = document.getElementById("chatroom");
+        if (newchat != null && newchat.value != selectedchat){
+            selectedchat = newchat.value;
+            header = document.getElementById("chat-header");
+            header.innerHTML = "Currently in chatroom: " + selectedchat;
+
+            let changeEvent = new ChangeChatRoomEvent(selectedchat);
+
+            sendEvent("change_room", changeEvent);
+
+            textarea = document.getElementById("chatmessages");
+            textarea.innerHTML = `You changed room into: ${selectedchat}`;
+        }
+
         return false;
     }
+
+    function routeEvent(event){
+        if (event.type === undefined) {
+            alert('no type field in the event');
+        }
+
+        switch(event.type){
+            case "new_message":
+                const messageEvent = Object.assign(new NewMessageEvent, event.payload);
+                appendChatMessage(messageEvent);
+                break;
+            default:
+                alert("unsupported message type");
+                break;
+        }
+    }
+
+    function appendChatMessage(messageEvent){
+        var date = new Date(messageEvent.sent);
+        //from = document.getElementById("username")
+        const formattedMsg = `${date.toLocaleString().substring(0,10)} ${messageEvent.from}: ${messageEvent.message}`;
+
+        textarea = document.getElementById('chatmessages');
+        textarea.innerHTML = textarea.innerHTML + "\n" + formattedMsg;
+        textarea.scrollTop = textarea.scrollHeight;
+    }
+
+    function sendEvent(eventName, payload){
+        const event = new Event(eventName, payload);
+        conn.send(JSON.stringify(event));
+    }
+
     /**
      * sendMessage will send a new message onto the Websocket
      * */
     function sendMessage() {
+        from = document.getElementById("username")
         var newmessage = document.getElementById("message");
         if (newmessage != null) {
-            console.log(newmessage);
+            let outgoingEvent = new SendMessageEvent(newmessage.value, from.value);
+            sendEvent("send_message", outgoingEvent);
         }
         return false;
     }
@@ -72,7 +140,13 @@
         if (window["WebSocket"]) {
             console.log("supports websockets");
             // Connect to websocket
-            conn = new WebSocket("wss://" + document.location.host + "/ws")
+            conn = new WebSocket("wss://" + document.location.host + "/ws");
+
+            conn.onmessage = function(evt){
+                const eventData = JSON.parse(evt.data);
+                const event = Object.assign(new Event, eventData);
+                routeEvent(event);
+            }
         } else {
             alert("Not supporting websockets");
         }

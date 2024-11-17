@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"gochat.ayonchakroborty.net/internal/models"
 	"gochat.ayonchakroborty.net/internal/validator"
@@ -134,7 +135,14 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username, err := app.userModel.GetUserField("username", form.Email)
+	if err != nil {
+		app.serverError(w, r, err)
+	}
+
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
+	app.sessionManager.Put(r.Context(), "email", form.Email)
+	app.sessionManager.Put(r.Context(), "username", username)
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -147,7 +155,8 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
-
+	app.sessionManager.Remove(r.Context(), "email")
+	app.sessionManager.Remove(r.Context(), "username")
 	app.sessionManager.Put(r.Context(), "flash", "You've been logged out successfully!")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -157,8 +166,86 @@ func (app *application) chat(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, http.StatusOK, "chat.html", app.newTemplateData(r))
 }
 
-func (app *application) userAccount(w http.ResponseWriter, r *http.Request){
+func (app *application) userAccount(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
-	data.Form = userSignupForm{}
+
+	username, err := app.userModel.GetUserField("username", data.Email)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	form := userSignupForm{
+		UserName: username,
+		Email:    data.Email,
+	}
+	data.Form = form
 	app.render(w, r, http.StatusOK, "account.html", data)
+}
+
+func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) {
+	email := app.sessionManager.GetString(r.Context(), "email")
+
+	if err := r.ParseForm(); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form := userSignupForm{}
+
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	if validator.NotBlank(form.Email) {
+		form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "This field must be a valid email")
+	}
+	if validator.NotBlank(form.Password) {
+		form.CheckField(validator.MinChars(form.Password, 8), "password", "This field must be at least 8 characters long")
+	}
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, r, http.StatusUnprocessableEntity, "account.html", data)
+		return
+	}
+
+	formValues := map[string]string{
+		"email":    form.Email,
+		"username": form.UserName,
+		"password": form.Password,
+	}
+
+	for field, val := range formValues {
+		if !validator.NotBlank(val) {
+			continue
+		}
+		err := app.userModel.UpdateField(field, val, email)
+		if err != nil {
+			if errors.Is(err, models.ErrDuplicateEmail) {
+				form.AddFieldError("email", "Email address is already in use")
+
+				data := app.newTemplateData(r)
+				data.Form = form
+				app.render(w, r, http.StatusUnprocessableEntity, "account.html", data)
+			} else {
+				app.serverError(w, r, err)
+			}
+
+			return
+		}
+
+		if strings.Compare(field, "email") == 0 {
+			email = val
+			app.sessionManager.Put(r.Context(), "email", val)
+		} else if strings.Compare(field, "username") == 0{
+			app.sessionManager.Put(r.Context(), "username", val)
+		}
+	}
+
+	app.sessionManager.Put(r.Context(), "flash", "Account info changed successfully!")
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+
 }
