@@ -21,6 +21,7 @@ type Client struct {
 	connection *websocket.Conn
 	manager    *Manager
 
+	chatroom string
 	// egress is used to aboid concurrent writes on the websocket connection
 	egress chan Event
 }
@@ -29,6 +30,7 @@ func NewClient(conn *websocket.Conn, manager *Manager) *Client {
 	return &Client{
 		connection: conn,
 		manager:    manager,
+		chatroom:   "general",
 		egress:     make(chan Event),
 	}
 }
@@ -38,9 +40,9 @@ func (c *Client) readMessages() {
 		// cleanup connection
 		c.manager.removeClient(c)
 	}()
-	
+
 	// configer wait time for pong response
-	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil{
+	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 		log.Println("Read Msg Err:", err)
 		return
 	}
@@ -101,11 +103,11 @@ func (c *Client) writeMessages() {
 				log.Printf("failed to send message: %v\n", err)
 			}
 			log.Printf("Message sent: %s\n", message)
-		case <- ticker.C:
+		case <-ticker.C:
 			log.Println("ping")
 
 			// Send a Ping to the Client
-			if err := c.connection.WriteMessage(websocket.PingMessage, []byte{}); err != nil{
+			if err := c.connection.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Println("Write Msg Err: ", err)
 				return
 			}
@@ -113,7 +115,7 @@ func (c *Client) writeMessages() {
 	}
 }
 
-func (c *Client) pongHandler(pongMsg string) error{
+func (c *Client) pongHandler(pongMsg string) error {
 	log.Println("pong")
 	return c.connection.SetReadDeadline(time.Now().Add(pongWait))
 }

@@ -1,5 +1,41 @@
-{{define "title"}}Account{{end}}
+{{define "title"}} Change Account Info {{end}}
 
 {{define "main"}}
-    <h2>ACCOUNT PAGE STILL IN DEVELOPMENT...</h2>
+<h2>Account Settings</h2>
+<form action="/user/account" method="POST" novalidate>
+    <h3>Change Account Information</h3>
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div>
+        <label>Username:</label>
+        {{with .Form.FieldErrors.username}}
+            <label class="error">{{.}}</label>
+        {{end}}
+        <input type="text" name="username" placeholder="ExampleUsername1965" value="{{.Form.UserName}}">
+    </div>
+    <div>
+        <label>Email:</label>
+        {{with .Form.FieldErrors.email}}
+            <label class="error">{{.}}</label>
+        {{end}}
+        <input type="email" name="email" placeholder="example@email.com" value ="{{.Form.Email}}">
+    </div>
+    <div>
+        <label>Password:</label>
+        {{with .Form.FieldErrors.password}}
+            <label class="error">{{.}}</label>
+        {{end}}
+        <input type="password" name="password" placeholder="Must be 8 characters long">
+    </div>
+    <div>
+        <input type="submit" value="Submit">
+    </div>
+</form>
+<br>
+<form action="/user/delete" method="POST" novalidate>
+    <h2>DELETE ACCOUNT</h2>
+    <h3>Delete account from GoChat. Your chat history will remain</h3>
+    <div>
+        <input type="submit" value="DELETE">
+    </div>
+</form>
 {{end}}

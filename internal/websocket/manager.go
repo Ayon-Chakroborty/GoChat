@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,19 @@ func NewManager() *Manager {
 
 func (m *Manager) setupEventHandlers() {
 	m.handlers[EventSendMessage] = SendMessage
+	m.handlers[EventChangeChatRoom] = ChatRoomHandler
+}
+
+func ChatRoomHandler(event Event, c *Client) error {
+	var changeRoomEvent ChangeRoomEvent
+
+	if err := json.Unmarshal(event.Payload, &changeRoomEvent); err != nil {
+		return fmt.Errorf("bad payload in request: %v", err)
+	}
+	changeRoomEvent.Name = strings.TrimSpace(changeRoomEvent.Name)
+	c.chatroom = changeRoomEvent.Name
+
+	return nil
 }
 
 func SendMessage(event Event, c *Client) error {
@@ -55,19 +69,21 @@ func SendMessage(event Event, c *Client) error {
 	broadMessage.From = chatEvent.From
 
 	data, err := json.Marshal(broadMessage)
-	if err != nil{
+	if err != nil {
 		return fmt.Errorf("failed to marshal broadcast message : %v", err)
 	}
 
 	outgoingEvent := Event{
 		Payload: data,
-		Type: EventNewMessage,
+		Type:    EventNewMessage,
 	}
 
-	for client := range c.manager.clients{
-		client.egress <- outgoingEvent
+	for client := range c.manager.clients {
+		if client.chatroom == c.chatroom {
+			client.egress <- outgoingEvent
+		}
 	}
-	
+
 	return nil
 }
 
