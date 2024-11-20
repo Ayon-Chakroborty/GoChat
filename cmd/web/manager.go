@@ -1,4 +1,4 @@
-package websocket
+package main
 
 import (
 	"encoding/json"
@@ -28,19 +28,17 @@ type Manager struct {
 	handlers map[string]EventHandler
 }
 
-func NewManager() *Manager {
+func (app *application) NewManager() *Manager {
 	m := &Manager{
 		clients:  make(ClientList),
 		handlers: make(map[string]EventHandler),
 	}
-
-	m.setupEventHandlers()
 	return m
 }
 
-func (m *Manager) setupEventHandlers() {
-	m.handlers[EventSendMessage] = SendMessage
-	m.handlers[EventChangeChatRoom] = ChatRoomHandler
+func (app *application) setupEventHandlers() {
+	app.wsManager.handlers[EventSendMessage] = app.SendMessage
+	app.wsManager.handlers[EventChangeChatRoom] = ChatRoomHandler
 }
 
 func ChatRoomHandler(event Event, c *Client) error {
@@ -55,7 +53,7 @@ func ChatRoomHandler(event Event, c *Client) error {
 	return nil
 }
 
-func SendMessage(event Event, c *Client) error {
+func (app *application) SendMessage(event Event, c *Client) error {
 	var chatEvent SendMessageEvent
 
 	if err := json.Unmarshal(event.Payload, &chatEvent); err != nil {
@@ -67,10 +65,17 @@ func SendMessage(event Event, c *Client) error {
 	broadMessage.Sent = time.Now()
 	broadMessage.Message = chatEvent.Message
 	broadMessage.From = chatEvent.From
+	broadMessage.Email = chatEvent.Email
+	broadMessage.Chatroom = chatEvent.Chatroom
 
 	data, err := json.Marshal(broadMessage)
 	if err != nil {
 		return fmt.Errorf("failed to marshal broadcast message : %v", err)
+	}
+
+	err = app.chatModel.Insert(broadMessage.Chatroom, broadMessage.Email, false, broadMessage.Message)
+	if err != nil{
+		return fmt.Errorf("failed to save broadcast message : %v", err)
 	}
 
 	outgoingEvent := Event{

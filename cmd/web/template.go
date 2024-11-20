@@ -15,6 +15,7 @@ type templateData struct {
 	Flash           string
 	Email           string
 	Username        string
+	Chatroom        string
 	IsAuthenticated bool
 	CSRFToken       string
 }
@@ -25,6 +26,7 @@ func (app *application) newTemplateData(r *http.Request) templateData {
 		Flash:           app.sessionManager.PopString(r.Context(), "flash"),
 		Email:           app.sessionManager.GetString(r.Context(), "email"),
 		Username:        app.sessionManager.GetString(r.Context(), "username"),
+		Chatroom:        app.sessionManager.GetString(r.Context(), "chatroom"),
 		IsAuthenticated: app.isAuthenticated(r),
 		CSRFToken:       nosurf.Token(r),
 	}

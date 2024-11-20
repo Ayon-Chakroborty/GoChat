@@ -8,9 +8,9 @@
     <!--
     Here is a form that allows us to select what Chatroom to be in
     -->
-    <form id="chatroom-selection">
-        <label for="chatroom">Chatroom:</label>
-        <input type="text" id="chatroom" name="chatroom"><br><br>
+    <form id="chatroom-selection" action="/chat/room" method="POST" novalidate>
+        <label>Chatroom:</label>
+        <input type="text" name="chatroom"><br><br>
         <input type="submit" value="Change chatroom">
     </form>
 
@@ -26,7 +26,9 @@
     Chatroom-message form is used to send messages
     -->
     <form id="chatroom-message">
-        <input type="text" id="username" value="{{.Username}}">
+        <input type="hidden" id="username" value="{{.Username}}">
+        <input type="hidden" id="email" value="{{.Email}}">
+        <input type="hidden" id="chatroom" value="{{.Chatroom}}">
         <label for="message">Message:</label>
         <input type="text" id="message" name="message"><br><br>
         <input type="submit" value="Send message">
@@ -36,7 +38,7 @@
 <script type="text/javascript">
 
     // selectedchat is by default General.
-    var selectedchat = "general";
+    var selectedchatroom = "general";
 
     class Event {
         constructor(type, payload){
@@ -46,9 +48,11 @@
     }
 
     class SendMessageEvent {
-        constructor(message, from){
+        constructor(message, from, email, chatroom){
             this.message = message;
             this.from = from;
+            this.email = email;
+            this.chatroom = chatroom
         }
     }
 
@@ -66,23 +70,23 @@
         }
     }
 
-    function changeChatRoom(){
-        var newchat = document.getElementById("chatroom");
-        if (newchat != null && newchat.value != selectedchat){
-            selectedchat = newchat.value;
-            header = document.getElementById("chat-header");
-            header.innerHTML = "Currently in chatroom: " + selectedchat;
+    // function changeChatRoom(){
+    //     var newchatroom = document.getElementById("chatroom");
+    //     if (newchatroom != null && newchatroom.value != selectedchatroom){
+    //         selectedchatroom = newchatroom.value;
+    //         header = document.getElementById("chat-header");
+    //         header.innerHTML = "Currently in chatroom: " + selectedchatroom;
 
-            let changeEvent = new ChangeChatRoomEvent(selectedchat);
+    //         let changeEvent = new ChangeChatRoomEvent(selectedchatroom);
 
-            sendEvent("change_room", changeEvent);
+    //         sendEvent("change_room", changeEvent);
 
-            textarea = document.getElementById("chatmessages");
-            textarea.innerHTML = `You changed room into: ${selectedchat}`;
-        }
+    //         textarea = document.getElementById("chatmessages");
+    //         textarea.innerHTML = `You changed room into: ${selectedchat}`;
+    //     }
 
-        return false;
-    }
+    //     return false;
+    // }
 
     function routeEvent(event){
         if (event.type === undefined) {
@@ -119,10 +123,12 @@
      * sendMessage will send a new message onto the Websocket
      * */
     function sendMessage() {
-        from = document.getElementById("username")
+        from = document.getElementById("username");
+        email = document.getElementById("email");
+        chatroom = document.getElementById("chatroom");
         var newmessage = document.getElementById("message");
         if (newmessage != null) {
-            let outgoingEvent = new SendMessageEvent(newmessage.value, from.value);
+            let outgoingEvent = new SendMessageEvent(newmessage.value, from.value, email.value, chatroom.value);
             sendEvent("send_message", outgoingEvent);
         }
         return false;
@@ -133,7 +139,7 @@
     window.onload = function () {
         // Apply our listener functions to the submit event on both forms
         // we do it this way to avoid redirects
-        document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
+        //document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
         document.getElementById("chatroom-message").onsubmit = sendMessage;
 
         // Check if the browser supports WebSocket

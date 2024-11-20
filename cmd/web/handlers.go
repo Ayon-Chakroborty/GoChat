@@ -69,6 +69,12 @@ func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = app.chatroomModel.Insert("general", form.Email, false)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
 	app.sessionManager.Put(r.Context(), "flash", "Account created successfully!")
 
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
@@ -143,6 +149,7 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
 	app.sessionManager.Put(r.Context(), "email", form.Email)
 	app.sessionManager.Put(r.Context(), "username", username)
+	app.sessionManager.Put(r.Context(), "chatroom", "general")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -239,7 +246,7 @@ func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) 
 		if strings.Compare(field, "email") == 0 {
 			email = val
 			app.sessionManager.Put(r.Context(), "email", val)
-		} else if strings.Compare(field, "username") == 0{
+		} else if strings.Compare(field, "username") == 0 {
 			app.sessionManager.Put(r.Context(), "username", val)
 		}
 	}
@@ -247,5 +254,26 @@ func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) 
 	app.sessionManager.Put(r.Context(), "flash", "Account info changed successfully!")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
 
+type chatRoomForm struct {
+	chatroom            string `form:"chatroom`
+	validator.Validator `form:"-"`
+}
+
+func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
+	// email := app.sessionManager.GetString(r.Context(), "email")
+
+	// if err := r.ParseForm(); err != nil{
+	// 	app.clientError(w, http.StatusBadRequest)
+	// 	return
+	// }
+
+	// form := chatRoomForm{}
+
+	// if err := app.formDecoder.Decode(&form, r.PostForm); err != nil{
+	// 	app.clientError()
+	// }
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

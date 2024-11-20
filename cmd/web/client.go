@@ -1,4 +1,4 @@
-package websocket
+package main
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ type Client struct {
 	manager    *Manager
 
 	chatroom string
-	// egress is used to aboid concurrent writes on the websocket connection
+	// egress is used to avoid concurrent writes on the websocket connection
 	egress chan Event
 }
 
