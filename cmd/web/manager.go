@@ -48,6 +48,10 @@ func ChatRoomHandler(event Event, c *Client) error {
 		return fmt.Errorf("bad payload in request: %v", err)
 	}
 	changeRoomEvent.Name = strings.TrimSpace(changeRoomEvent.Name)
+	if changeRoomEvent.Name == ""{
+		return nil
+	}
+
 	c.chatroom = changeRoomEvent.Name
 
 	return nil
@@ -73,9 +77,12 @@ func (app *application) SendMessage(event Event, c *Client) error {
 		return fmt.Errorf("failed to marshal broadcast message : %v", err)
 	}
 
-	err = app.chatModel.Insert(broadMessage.Chatroom, broadMessage.Email, false, broadMessage.Message)
-	if err != nil{
-		return fmt.Errorf("failed to save broadcast message : %v", err)
+	if broadMessage.Message != "" {
+		c.chatroom = broadMessage.Chatroom
+		err = app.chatModel.Insert(broadMessage.Chatroom, broadMessage.Email, false, broadMessage.Message, broadMessage.From)
+		if err != nil {
+			return fmt.Errorf("failed to save broadcast message : %v", err)
+		}
 	}
 
 	outgoingEvent := Event{

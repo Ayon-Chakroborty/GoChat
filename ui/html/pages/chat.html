@@ -3,12 +3,13 @@
 {{define "main"}}
 <div class="center">
     <h1>Amazing Chat Application</h1>
-    <h3 id="chat-header">Currently in chat: general</h3>
+    <h3 id="chat-header">Currently in chat: {{.Chatroom}}</h3>
 
     <!--
     Here is a form that allows us to select what Chatroom to be in
     -->
     <form id="chatroom-selection" action="/chat/room" method="POST" novalidate>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
         <label>Chatroom:</label>
         <input type="text" name="chatroom"><br><br>
         <input type="submit" value="Change chatroom">
@@ -19,7 +20,12 @@
     Textarea to show messages from users
     -->
     <textarea class="messagearea" id="chatmessages" readonly name="chatmessages" rows="4" cols="50"
-        placeholder="Welcome to the general chatroom, here messages from others will appear"></textarea>
+        placeholder="Welcome to the general chatroom, here messages from others will appear">
+{{range .Chats}} 
+{{humanDate .Created}} {{.Username}}: {{.Message}}
+{{end}}
+        ------------------ Previous Messages ------------------
+    </textarea>
 
     <br>
     <!--
@@ -38,7 +44,7 @@
 <script type="text/javascript">
 
     // selectedchat is by default General.
-    var selectedchatroom = "general";
+    // var selectedchatroom = document.getElementById("chatroom");
 
     class Event {
         constructor(type, payload){
@@ -72,17 +78,8 @@
 
     // function changeChatRoom(){
     //     var newchatroom = document.getElementById("chatroom");
-    //     if (newchatroom != null && newchatroom.value != selectedchatroom){
-    //         selectedchatroom = newchatroom.value;
-    //         header = document.getElementById("chat-header");
-    //         header.innerHTML = "Currently in chatroom: " + selectedchatroom;
-
-    //         let changeEvent = new ChangeChatRoomEvent(selectedchatroom);
-
-    //         sendEvent("change_room", changeEvent);
-
-    //         textarea = document.getElementById("chatmessages");
-    //         textarea.innerHTML = `You changed room into: ${selectedchat}`;
+    //     if (newchatroom != null && newchatroom.value != "" && newchatroom.value != selectedchatroom.value){
+    //         return true
     //     }
 
     //     return false;
@@ -107,7 +104,7 @@
     function appendChatMessage(messageEvent){
         var date = new Date(messageEvent.sent);
         //from = document.getElementById("username")
-        const formattedMsg = `${date.toLocaleString().substring(0,10)} ${messageEvent.from}: ${messageEvent.message}`;
+        const formattedMsg = `${date.toLocaleString("en-US").substring(0,10)} ${messageEvent.from}: ${messageEvent.message}\n`;
 
         textarea = document.getElementById('chatmessages');
         textarea.innerHTML = textarea.innerHTML + "\n" + formattedMsg;
@@ -123,9 +120,9 @@
      * sendMessage will send a new message onto the Websocket
      * */
     function sendMessage() {
-        from = document.getElementById("username");
-        email = document.getElementById("email");
-        chatroom = document.getElementById("chatroom");
+        var from = document.getElementById("username");
+        var email = document.getElementById("email");
+        var chatroom = document.getElementById("chatroom");
         var newmessage = document.getElementById("message");
         if (newmessage != null) {
             let outgoingEvent = new SendMessageEvent(newmessage.value, from.value, email.value, chatroom.value);

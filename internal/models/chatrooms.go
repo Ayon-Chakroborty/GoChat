@@ -2,13 +2,14 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 )
 
 type Chatroom struct {
-	id      int
-	name    string
-	user    string
-	private bool
+	ID     int
+	Name    string
+	User    string
+	Private bool
 }
 
 type ChatroomModel struct {
@@ -24,4 +25,22 @@ func (m *ChatroomModel) Insert(name string, user string, private bool) error {
 	}
 
 	return nil
+}
+
+func (m *ChatroomModel) Get(chatroom, email string) (*Chatroom, error){
+	stmt := `SELECT * FROM chatrooms WHERE name = ? AND user = ?`
+	
+	row := m.DB.QueryRow(stmt, chatroom, email)
+	cr := &Chatroom{}
+
+	err := row.Scan(&cr.ID, &cr.Name, &cr.User, &cr.Private)
+	if err != nil{
+		if errors.Is(err, sql.ErrNoRows){
+			return nil, ErrNoRecord
+		} else{
+			return nil, err
+		}
+	}
+
+	return cr, nil
 }

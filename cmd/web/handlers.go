@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -170,7 +171,15 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) chat(w http.ResponseWriter, r *http.Request) {
-	app.render(w, r, http.StatusOK, "chat.html", app.newTemplateData(r))
+	data := app.newTemplateData(r)
+	chats, err := app.chatModel.Get(data.Chatroom)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	data.Chats = chats
+	app.render(w, r, http.StatusOK, "chat.html", data)
 }
 
 func (app *application) userAccount(w http.ResponseWriter, r *http.Request) {
@@ -257,23 +266,52 @@ func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) 
 }
 
 type chatRoomForm struct {
-	chatroom            string `form:"chatroom`
+	Chatroom            string `form:"chatroom"`
 	validator.Validator `form:"-"`
 }
 
 func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
-	// email := app.sessionManager.GetString(r.Context(), "email")
+	email := app.sessionManager.GetString(r.Context(), "email")
 
-	// if err := r.ParseForm(); err != nil{
-	// 	app.clientError(w, http.StatusBadRequest)
-	// 	return
-	// }
+	if err := r.ParseForm(); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
 
-	// form := chatRoomForm{}
+	form := chatRoomForm{}
 
-	// if err := app.formDecoder.Decode(&form, r.PostForm); err != nil{
-	// 	app.clientError()
-	// }
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	if !validator.NotBlank(form.Chatroom) {
+		log.Println("Chatrooom is blank for some reason", form.Chatroom)
+		http.Redirect(w, r, "/chat", http.StatusSeeOther)
+		return
+	}
+
+	log.Println("Chatrooom from form", form.Chatroom)
+
+	_, err := app.chatroomModel.Get(form.Chatroom, email)
+	if err != nil{
+		if errors.Is(err, models.ErrNoRecord) {
+			// if the chatroom is a user email then create private chat?
+			log.Printf("In here with new chat room")
+			// public chat room
+			err := app.chatroomModel.Insert(form.Chatroom, email, false)
+			if err != nil {
+				log.Print("Error while inserting new chat room", err)
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+			}
+		} else {
+			log.Print("Error while getting new chat room", err)
+		}
+	}
+	
+	log.Print("Chatroom:", form.Chatroom)
+
+	app.sessionManager.Put(r.Context(), "chatroom", form.Chatroom)
+
+	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }

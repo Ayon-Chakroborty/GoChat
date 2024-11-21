@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/justinas/nosurf"
+	"gochat.ayonchakroborty.net/internal/models"
 )
 
 type templateData struct {
@@ -16,6 +17,7 @@ type templateData struct {
 	Email           string
 	Username        string
 	Chatroom        string
+	Chats           []*models.Chat
 	IsAuthenticated bool
 	CSRFToken       string
 }
@@ -32,6 +34,18 @@ func (app *application) newTemplateData(r *http.Request) templateData {
 	}
 }
 
+func humanDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.UTC().Format("01/02/2006")
+}
+
+var functions = template.FuncMap{
+	"humanDate": humanDate,
+}
+
 func newTemplateCache() (map[string]*template.Template, error) {
 	cache := map[string]*template.Template{}
 
@@ -43,7 +57,7 @@ func newTemplateCache() (map[string]*template.Template, error) {
 	for _, page := range pages {
 		name := filepath.Base(page)
 
-		ts, err := template.New(name).ParseFiles("./ui/html/base.html")
+		ts, err := template.New(name).Funcs(functions).ParseFiles("./ui/html/base.html")
 		if err != nil {
 			return nil, err
 		}
