@@ -18,6 +18,7 @@ type templateData struct {
 	Username        string
 	Chatroom        string
 	Chats           []*models.Chat
+	Chatrooms       []*models.Chatroom
 	IsAuthenticated bool
 	CSRFToken       string
 }

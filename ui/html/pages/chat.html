@@ -21,10 +21,12 @@
     -->
     <textarea class="messagearea" id="chatmessages" readonly name="chatmessages" rows="4" cols="50"
         placeholder="Welcome to the general chatroom, here messages from others will appear">
+{{if .Chats}}        
 {{range .Chats}} 
 {{humanDate .Created}} {{.Username}}: {{.Message}}
 {{end}}
-        ------------------ Previous Messages ------------------
+                ------------------ Previous Messages ------------------
+{{end}}
     </textarea>
 
     <br>

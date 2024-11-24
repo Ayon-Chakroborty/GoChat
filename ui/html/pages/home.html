@@ -1,0 +1,21 @@
+{{define "title"}}Home{{end}}
+
+{{define "main"}}
+    <h2>All Your Chats</h2>
+    {{if .Chatrooms}}
+        <table>
+            <tr>
+                <th>Chatroom</th>
+                <th>Users In This Chatroom</th>
+            </tr> 
+            {{range .Chatrooms}}
+                <tr>
+                    <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
+                    <td>{{.AllUsers}}</td>
+                </tr> 
+            {{end}}
+        </table>
+    {{else}}
+        <p>There's nothing to see here...</p>
+    {{end}}
+{{end}}

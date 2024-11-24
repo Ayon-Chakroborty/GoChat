@@ -11,7 +11,28 @@ import (
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	app.render(w, r, http.StatusOK, "about.html", app.newTemplateData(r))
+	data := app.newTemplateData(r)
+
+	chatrooms, err := app.chatroomModel.GetAllChats(data.Email)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	data.Chatrooms = chatrooms
+	for _, room := range data.Chatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		log.Println("Chatroom:", room.Name, "Users:", names)
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	app.render(w, r, http.StatusOK, "home.html", data)
 }
 
 type userSignupForm struct {
@@ -145,6 +166,7 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 	username, err := app.userModel.GetUserField("username", form.Email)
 	if err != nil {
 		app.serverError(w, r, err)
+		return
 	}
 
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
@@ -270,6 +292,14 @@ type chatRoomForm struct {
 	validator.Validator `form:"-"`
 }
 
+func (app *application) chatRoom(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	app.sessionManager.Put(r.Context(), "chatroom", name)
+
+	http.Redirect(w, r, "/chat", http.StatusSeeOther)
+}
+
 func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 	email := app.sessionManager.GetString(r.Context(), "email")
 
@@ -294,7 +324,7 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 	log.Println("Chatrooom from form", form.Chatroom)
 
 	_, err := app.chatroomModel.Get(form.Chatroom, email)
-	if err != nil{
+	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
 			// if the chatroom is a user email then create private chat?
 			log.Printf("In here with new chat room")
@@ -308,7 +338,7 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 			log.Print("Error while getting new chat room", err)
 		}
 	}
-	
+
 	log.Print("Chatroom:", form.Chatroom)
 
 	app.sessionManager.Put(r.Context(), "chatroom", form.Chatroom)

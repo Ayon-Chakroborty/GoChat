@@ -26,6 +26,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("POST /user/logout", protected.ThenFunc(app.userLogoutPost))
 	mux.Handle("GET /chat", protected.ThenFunc(app.chat))
 	mux.Handle("POST /chat/room", protected.ThenFunc(app.chatRoomPost))
+	mux.Handle("GET /chat/room/{name}", protected.ThenFunc(app.chatRoom))
 	mux.Handle("GET /user/account", protected.ThenFunc(app.userAccount))
 	mux.Handle("POST /user/account", protected.ThenFunc(app.userAccountPost))
 
