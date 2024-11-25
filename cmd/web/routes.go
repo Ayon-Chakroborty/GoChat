@@ -31,7 +31,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("POST /user/account", protected.ThenFunc(app.userAccountPost))
 
 	// websocket handler
-	mux.Handle("/ws", protected.ThenFunc(app.wsManager.ServeWS))
+	mux.Handle("/ws", protected.ThenFunc(app.ServeWS))
 
 	standard := alice.New(app.recoverPanic, app.logRequest, commonHeaders)
 

@@ -91,6 +91,7 @@ func (app *application) SendMessage(event Event, c *Client) error {
 	}
 
 	for client := range c.manager.clients {
+		log.Println(client)
 		if client.chatroom == c.chatroom {
 			client.egress <- outgoingEvent
 		}
@@ -110,7 +111,7 @@ func (m *Manager) routeEvent(event Event, c *Client) error {
 	}
 }
 
-func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
+func (app *application) ServeWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("new connection")
 
 	// upgrade http connection to websocket
@@ -120,29 +121,34 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := NewClient(conn, m)
+	client := app.NewClient(r, conn, app.wsManager)
 
-	m.addClient(client)
+	app.addClient(r, client)
 
 	// Start client process
-	go client.readMessages()
-	go client.writeMessages()
+	go app.readMessages(r, client)
+	go app.writeMessages(r, client)
 }
 
-func (m *Manager) addClient(client *Client) {
-	m.Lock()
-	defer m.Unlock()
+func (app *application) addClient(r *http.Request, client *Client) {
+	app.wsManager.Lock()
+	defer app.wsManager.Unlock()
 
-	m.clients[client] = true
+	email := app.sessionManager.GetString(r.Context(), "email")
+	app.wsManager.clients[client] = true
+	app.wsClientsMap[email] = client
 }
 
-func (m *Manager) removeClient(client *Client) {
-	m.Lock()
-	defer m.Unlock()
+func (app *application) removeClient(r *http.Request, client *Client) {
+	app.wsManager.Lock()
+	defer app.wsManager.Unlock()
+	
+	email := app.sessionManager.GetString(r.Context(), "email")
 
-	if _, ok := m.clients[client]; ok {
+	if _, ok := app.wsManager.clients[client]; ok {
 		client.connection.Close()
-		delete(m.clients, client)
+		delete(app.wsManager.clients, client)
+		delete(app.wsClientsMap, email)
 	}
 }
 

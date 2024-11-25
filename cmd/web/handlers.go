@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"gochat.ayonchakroborty.net/internal/models"
 	"gochat.ayonchakroborty.net/internal/validator"
@@ -27,7 +28,6 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println("Chatroom:", room.Name, "Users:", names)
 		formattedString := strings.Join(names, ", ")
 		room.AllUsers = formattedString
 	}
@@ -200,6 +200,16 @@ func (app *application) chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil{
+		app.serverError(w, r, err)
+		return
+	}
+
+	for _, chat := range chats{
+		chat.Created = chat.Created.In(loc)
+	}
+
 	data.Chats = chats
 	app.render(w, r, http.StatusOK, "chat.html", data)
 }
@@ -294,8 +304,13 @@ type chatRoomForm struct {
 
 func (app *application) chatRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-
 	app.sessionManager.Put(r.Context(), "chatroom", name)
+
+	email := app.sessionManager.GetString(r.Context(), "email")
+	
+	if client, ok := app.wsClientsMap[email]; ok{
+		client.chatroom = name
+	}
 
 	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }
@@ -321,27 +336,47 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cr := form.Chatroom
+	if validator.Matches(form.Chatroom, validator.EmailRX){
+		if strings.Compare(form.Chatroom, email) == 0{
+			http.Redirect(w, r, "/chat", http.StatusSeeOther)
+			return
+		}
+
+		cr = "Private chatroom for " + email + " and " + form.Chatroom
+	}
+
 	log.Println("Chatrooom from form", form.Chatroom)
 
-	_, err := app.chatroomModel.Get(form.Chatroom, email)
+	_, err := app.chatroomModel.Get(cr, email)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
-			// if the chatroom is a user email then create private chat?
-			log.Printf("In here with new chat room")
+			private := false
+			// if the chatroom is a user email then insert 2 times for each user
+			if validator.Matches(form.Chatroom, validator.EmailRX){
+				private = true
+				err := app.chatroomModel.Insert(cr, form.Chatroom, private)
+				if err != nil {
+					log.Print("Error while inserting new chat room", err)
+					http.Redirect(w, r, "/", http.StatusSeeOther)
+				}
+			}
 			// public chat room
-			err := app.chatroomModel.Insert(form.Chatroom, email, false)
+			err := app.chatroomModel.Insert(cr, email, private)
 			if err != nil {
 				log.Print("Error while inserting new chat room", err)
 				http.Redirect(w, r, "/", http.StatusSeeOther)
 			}
 		} else {
-			log.Print("Error while getting new chat room", err)
+			app.serverError(w, r, err)
+			return
 		}
 	}
 
-	log.Print("Chatroom:", form.Chatroom)
-
-	app.sessionManager.Put(r.Context(), "chatroom", form.Chatroom)
+	app.sessionManager.Put(r.Context(), "chatroom", cr)
+	if client, ok := app.wsClientsMap[email]; ok{
+		client.chatroom = form.Chatroom
+	}
 
 	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }

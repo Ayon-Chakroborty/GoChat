@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -26,19 +27,19 @@ type Client struct {
 	egress chan Event
 }
 
-func NewClient(conn *websocket.Conn, manager *Manager) *Client {
+func (app *application) NewClient(r *http.Request, conn *websocket.Conn, manager *Manager) *Client {
 	return &Client{
 		connection: conn,
 		manager:    manager,
-		chatroom:   "general",
+		chatroom:   app.sessionManager.GetString(r.Context(), "chatroom"),
 		egress:     make(chan Event),
 	}
 }
 
-func (c *Client) readMessages() {
+func (app *application) readMessages(r *http.Request, c *Client) {
 	defer func() {
 		// cleanup connection
-		c.manager.removeClient(c)
+		app.removeClient(r, c)
 	}()
 
 	// configer wait time for pong response
@@ -76,9 +77,9 @@ func (c *Client) readMessages() {
 	}
 }
 
-func (c *Client) writeMessages() {
+func (app *application) writeMessages(r *http.Request, c *Client) {
 	defer func() {
-		c.manager.removeClient(c)
+		app.removeClient(r, c)
 	}()
 
 	ticker := time.NewTicker(pingIntegerval)
