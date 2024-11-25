@@ -27,7 +27,6 @@ type application struct {
 	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
 	wsManager      *Manager
-	wsClientsMap   map[string]*Client
 }
 
 func main() {
@@ -66,7 +65,6 @@ func main() {
 		templateCache:  templateCache,
 		formDecoder:    formDecoder,
 		sessionManager: sessionManager,
-		wsClientsMap:   make(map[string]*Client),
 	}
 
 	app.wsManager = app.NewManager()

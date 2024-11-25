@@ -36,10 +36,10 @@ func (app *application) NewClient(r *http.Request, conn *websocket.Conn, manager
 	}
 }
 
-func (app *application) readMessages(r *http.Request, c *Client) {
+func (app *application) readMessages(c *Client) {
 	defer func() {
 		// cleanup connection
-		app.removeClient(r, c)
+		app.removeClient(c)
 	}()
 
 	// configer wait time for pong response
@@ -77,9 +77,9 @@ func (app *application) readMessages(r *http.Request, c *Client) {
 	}
 }
 
-func (app *application) writeMessages(r *http.Request, c *Client) {
+func (app *application) writeMessages(c *Client) {
 	defer func() {
-		app.removeClient(r, c)
+		app.removeClient(c)
 	}()
 
 	ticker := time.NewTicker(pingIntegerval)

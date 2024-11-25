@@ -48,7 +48,7 @@ func ChatRoomHandler(event Event, c *Client) error {
 		return fmt.Errorf("bad payload in request: %v", err)
 	}
 	changeRoomEvent.Name = strings.TrimSpace(changeRoomEvent.Name)
-	if changeRoomEvent.Name == ""{
+	if changeRoomEvent.Name == "" {
 		return nil
 	}
 
@@ -123,32 +123,27 @@ func (app *application) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	client := app.NewClient(r, conn, app.wsManager)
 
-	app.addClient(r, client)
+	app.addClient(client)
 
 	// Start client process
-	go app.readMessages(r, client)
-	go app.writeMessages(r, client)
+	go app.readMessages(client)
+	go app.writeMessages(client)
 }
 
-func (app *application) addClient(r *http.Request, client *Client) {
+func (app *application) addClient(client *Client) {
 	app.wsManager.Lock()
 	defer app.wsManager.Unlock()
 
-	email := app.sessionManager.GetString(r.Context(), "email")
 	app.wsManager.clients[client] = true
-	app.wsClientsMap[email] = client
 }
 
-func (app *application) removeClient(r *http.Request, client *Client) {
+func (app *application) removeClient(client *Client) {
 	app.wsManager.Lock()
 	defer app.wsManager.Unlock()
-	
-	email := app.sessionManager.GetString(r.Context(), "email")
 
 	if _, ok := app.wsManager.clients[client]; ok {
 		client.connection.Close()
 		delete(app.wsManager.clients, client)
-		delete(app.wsClientsMap, email)
 	}
 }
 

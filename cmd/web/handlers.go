@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -306,12 +307,6 @@ func (app *application) chatRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	app.sessionManager.Put(r.Context(), "chatroom", name)
 
-	email := app.sessionManager.GetString(r.Context(), "email")
-	
-	if client, ok := app.wsClientsMap[email]; ok{
-		client.chatroom = name
-	}
-
 	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }
 
@@ -342,8 +337,10 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/chat", http.StatusSeeOther)
 			return
 		}
-
-		cr = "Private chatroom for " + email + " and " + form.Chatroom
+		
+		sorted := []string{email, form.Chatroom}
+		sort.Strings(sorted)
+		cr = "Private chatroom for " + sorted[0] + " and " + sorted[1]
 	}
 
 	log.Println("Chatrooom from form", form.Chatroom)
@@ -374,9 +371,6 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.sessionManager.Put(r.Context(), "chatroom", cr)
-	if client, ok := app.wsClientsMap[email]; ok{
-		client.chatroom = form.Chatroom
-	}
 
 	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }
