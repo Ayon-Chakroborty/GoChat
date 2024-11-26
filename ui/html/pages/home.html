@@ -2,13 +2,32 @@
 
 {{define "main"}}
     <h2>All Your Chats</h2>
-    {{if .Chatrooms}}
+    {{if .PublicChatrooms}}
+        <h3>Public Chatrooms</h3>
         <table>
             <tr>
                 <th>Chatroom</th>
                 <th>Users In This Chatroom</th>
             </tr> 
-            {{range .Chatrooms}}
+            {{range .PublicChatrooms}}
+                <tr>
+                    <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
+                    <td>{{.AllUsers}}</td>
+                </tr> 
+            {{end}}
+        </table>
+    {{end}}
+    <br>
+    <br>
+    <br>
+    {{if .PrivateChatrooms}}
+        <h3>Private Chatrooms</h3>
+        <table>
+            <tr>
+                <th>Chatroom</th>
+                <th>Users In This Chatroom</th>
+            </tr> 
+            {{range .PrivateChatrooms}}
                 <tr>
                     <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
                     <td>{{.AllUsers}}</td>

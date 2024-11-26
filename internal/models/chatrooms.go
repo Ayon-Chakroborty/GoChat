@@ -28,10 +28,10 @@ func (m *ChatroomModel) Insert(name string, user string, private bool) error {
 	return nil
 }
 
-func (m *ChatroomModel) Get(chatroom, email string) (*Chatroom, error) {
-	stmt := `SELECT * FROM chatrooms WHERE name = ? AND user = ?`
+func (m *ChatroomModel) Get(chatroom string, email string, private bool) (*Chatroom, error) {
+	stmt := `SELECT * FROM chatrooms WHERE name = ? AND user = ? and private = ?`
 
-	row := m.DB.QueryRow(stmt, chatroom, email)
+	row := m.DB.QueryRow(stmt, chatroom, email, private)
 	cr := &Chatroom{}
 
 	err := row.Scan(&cr.ID, &cr.Name, &cr.User, &cr.Private)
@@ -74,11 +74,11 @@ func (m *ChatroomModel) GetAllChats(email string) ([]*Chatroom, error) {
 	return chatrooms, nil
 }
 
-func (m *ChatroomModel) GetUsersInChatroom(chatroom string) ([]string, error) {
+func (m *ChatroomModel) GetUsersInChatroom(chatroom string, private bool) ([]string, error) {
 	stmt := `SELECT users.username FROM users
-	INNER JOIN chatrooms ON chatrooms.user=users.email AND chatrooms.name=?`
+	INNER JOIN chatrooms ON chatrooms.user=users.email AND chatrooms.name=? AND chatrooms.private=?`
 
-	rows, err := m.DB.Query(stmt, chatroom)
+	rows, err := m.DB.Query(stmt, chatroom, private)
 	if err != nil {
 		return nil, err
 	}

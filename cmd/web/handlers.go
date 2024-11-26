@@ -21,9 +21,33 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data.Chatrooms = chatrooms
-	for _, room := range data.Chatrooms {
-		names, err := app.chatroomModel.GetUsersInChatroom(room.Name)
+	publicChatrooms := []*models.Chatroom{}
+	privateChatrooms := []*models.Chatroom{}
+
+	for _, cr := range chatrooms {
+		if cr.Private{
+			privateChatrooms = append(privateChatrooms, cr)
+		} else{
+			publicChatrooms = append(publicChatrooms, cr)
+		}
+	}
+
+	data.PublicChatrooms = publicChatrooms
+	data.PrivateChatrooms = privateChatrooms
+
+	for _, room := range data.PublicChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	for _, room := range data.PrivateChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
 		if err != nil {
 			app.serverError(w, r, err)
 			return
@@ -202,12 +226,12 @@ func (app *application) chat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	loc, err := time.LoadLocation("America/New_York")
-	if err != nil{
+	if err != nil {
 		app.serverError(w, r, err)
 		return
 	}
 
-	for _, chat := range chats{
+	for _, chat := range chats {
 		chat.Created = chat.Created.In(loc)
 	}
 
@@ -326,31 +350,30 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !validator.NotBlank(form.Chatroom) {
-		log.Println("Chatrooom is blank for some reason", form.Chatroom)
 		http.Redirect(w, r, "/chat", http.StatusSeeOther)
 		return
 	}
 
 	cr := form.Chatroom
-	if validator.Matches(form.Chatroom, validator.EmailRX){
-		if strings.Compare(form.Chatroom, email) == 0{
+	private := false
+	if validator.Matches(form.Chatroom, validator.EmailRX) {
+		if strings.Compare(form.Chatroom, email) == 0 {
 			http.Redirect(w, r, "/chat", http.StatusSeeOther)
 			return
 		}
-		
+
 		sorted := []string{email, form.Chatroom}
 		sort.Strings(sorted)
 		cr = "Private chatroom for " + sorted[0] + " and " + sorted[1]
+		private = true
 	}
 
-	log.Println("Chatrooom from form", form.Chatroom)
-
-	_, err := app.chatroomModel.Get(cr, email)
+	_, err := app.chatroomModel.Get(cr, email, private)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
 			private := false
 			// if the chatroom is a user email then insert 2 times for each user
-			if validator.Matches(form.Chatroom, validator.EmailRX){
+			if validator.Matches(form.Chatroom, validator.EmailRX) {
 				private = true
 				err := app.chatroomModel.Insert(cr, form.Chatroom, private)
 				if err != nil {

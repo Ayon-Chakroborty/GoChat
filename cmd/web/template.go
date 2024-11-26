@@ -11,16 +11,17 @@ import (
 )
 
 type templateData struct {
-	CurrentYear     int
-	Form            any
-	Flash           string
-	Email           string
-	Username        string
-	Chatroom        string
-	Chats           []*models.Chat
-	Chatrooms       []*models.Chatroom
-	IsAuthenticated bool
-	CSRFToken       string
+	CurrentYear      int
+	Form             any
+	Flash            string
+	Email            string
+	Username         string
+	Chatroom         string
+	Chats            []*models.Chat
+	PublicChatrooms  []*models.Chatroom
+	PrivateChatrooms []*models.Chatroom
+	IsAuthenticated  bool
+	CSRFToken        string
 }
 
 func (app *application) newTemplateData(r *http.Request) templateData {
