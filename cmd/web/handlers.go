@@ -25,9 +25,9 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	privateChatrooms := []*models.Chatroom{}
 
 	for _, cr := range chatrooms {
-		if cr.Private{
+		if cr.Private {
 			privateChatrooms = append(privateChatrooms, cr)
-		} else{
+		} else {
 			publicChatrooms = append(publicChatrooms, cr)
 		}
 	}
@@ -60,7 +60,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, http.StatusOK, "home.html", data)
 }
 
-func (app *application) about(w http.ResponseWriter, r *http.Request){
+func (app *application) about(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, http.StatusOK, "about.html", app.newTemplateData(r))
 }
 
@@ -401,3 +401,118 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/chat", http.StatusSeeOther)
 }
+
+func (app *application) userDeletePost(w http.ResponseWriter, r *http.Request) {
+	email := app.sessionManager.GetString(r.Context(), "email")
+	log.Println("here in userDeletePost")
+	if err := app.sessionManager.RenewToken(r.Context()); err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	// if err := app.chatModel.DeleteUser(email); err != nil {
+	// 	app.serverError(w, r, err)
+	// 	return
+	// }
+
+	// if err := app.chatroomModel.DeleteUser(email); err != nil{
+	// 	app.serverError(w, r, err)
+	// 	return
+	// }
+
+	if err := app.userModel.DeleteUser(email); err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
+	app.sessionManager.Remove(r.Context(), "email")
+	app.sessionManager.Remove(r.Context(), "username")
+	app.sessionManager.Put(r.Context(), "flash", "Your account has been deleted successfully!")
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+type searchForm struct {
+	Search string `form:"search"`
+	validator.Validator
+}
+
+func (app *application) chatSearch(w http.ResponseWriter, r *http.Request) {
+	app.render(w, r, http.StatusSeeOther, "search.html", app.newTemplateData(r))
+}
+
+func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
+	email := app.sessionManager.GetString(r.Context(), "email")
+
+	if err := r.ParseForm(); err != nil{
+		app.clientError(w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	form := searchForm{}
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil{
+		app.clientError(w, http.StatusUnprocessableEntity)
+		return
+	}
+	form.Search = strings.TrimSpace(form.Search)
+
+	if !validator.NotBlank(form.Search){
+		http.Redirect(w, r, "/chat/search", http.StatusSeeOther)
+		return
+	}
+
+	data := app.newTemplateData(r)
+	chatrooms := []*models.Chatroom{}
+	var err error
+
+	if validator.Matches(form.Search, validator.EmailRX){
+		chatrooms, err = app.chatroomModel.SearchUser(email, form.Search)
+	} else {
+		chatrooms, err = app.chatroomModel.GetSearchedChat(email, form.Search)
+	}
+
+	if err != nil{
+		app.serverError(w, r, err)
+		return
+	}
+
+	publicChatrooms := []*models.Chatroom{}
+	privateChatrooms := []*models.Chatroom{}
+
+	for _, cr := range chatrooms {
+		if cr.Private {
+			privateChatrooms = append(privateChatrooms, cr)
+		} else {
+			publicChatrooms = append(publicChatrooms, cr)
+		}
+	}
+
+	data.PublicChatrooms = publicChatrooms
+	data.PrivateChatrooms = privateChatrooms
+
+	for _, room := range data.PublicChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	for _, room := range data.PrivateChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	app.render(w, r, http.StatusOK, "search.html", data)
+}
+

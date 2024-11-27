@@ -33,7 +33,7 @@ func (m *ChatModel) Insert(chatroom string, sender string, private bool, message
 
 func (m *ChatModel) Get(chatroom string) ([]*Chat, error) {
 	stmt := `SELECT * FROM chats WHERE chatroom = ?
-	ORDER BY created ASC LIMIT 100`
+	ORDER BY created ASC LIMIT 200`
 	rows, err := m.DB.Query(stmt, chatroom)
 	if err != nil {
 		return nil, err
@@ -55,4 +55,15 @@ func (m *ChatModel) Get(chatroom string) ([]*Chat, error) {
 	}
 
 	return chats, nil
+}
+
+func (m *ChatModel) DeleteUser(email string) (error){
+	stmt := `DELETE FROM chats WHERE sender=?`
+
+	_, err := m.DB.Exec(stmt, email)
+	if err != nil{
+		return err
+	}
+
+	return nil
 }

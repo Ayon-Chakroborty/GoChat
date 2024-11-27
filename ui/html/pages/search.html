@@ -1,7 +1,18 @@
-{{define "title"}}Home{{end}}
+{{define "title"}}Search{{end}}
 
 {{define "main"}}
-    <h2>All Your Chats</h2>
+    <form action="/chat/search" method="POST"  novalidate>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <div>
+            <input type="text" name="search" placeholder="Search for a chatroom or user email">
+        </div> 
+        <div>
+            <input type="submit" value="Search">
+        </div>     
+    </form>
+    <br>
+    <br>
+    <h2>Search Results</h2>
     {{if .PublicChatrooms}}
         <h3>Public Chatrooms</h3>
         <table>
@@ -37,6 +48,6 @@
     {{else if .PublicChatrooms}}
         <!--Ignore this-->
     {{else}}
-        <p>There's nothing to see here...</p>
+        <p>No results were found</p>
     {{end}}
 {{end}}

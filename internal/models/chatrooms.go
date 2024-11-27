@@ -100,3 +100,70 @@ func (m *ChatroomModel) GetUsersInChatroom(chatroom string, private bool) ([]str
 
 	return names, nil
 }
+
+func (m *ChatroomModel) DeleteUser(email string) error {
+	stmt := `DELETE FROM chatrooms WHERE user=?`
+
+	_, err := m.DB.Exec(stmt, email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *ChatroomModel) SearchUser(email, searchEmail string) ([]*Chatroom, error) {
+	stmt := `select id, name, user, private from chatrooms 
+	where name in(select name from chatrooms 
+	where user in (?, ?) group by name having count(distinct user)=2) and user=?`
+
+	rows, err := m.DB.Query(stmt, email, searchEmail, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	chatrooms := []*Chatroom{}
+
+	for rows.Next() {
+		cr := &Chatroom{}
+		if err := rows.Scan(&cr.ID, &cr.Name, &cr.User, &cr.Private); err != nil{
+			return nil, err
+		}
+		chatrooms = append(chatrooms, cr)
+	}
+
+	if err = rows.Err(); err != nil{
+		return nil, err
+	}
+
+	return chatrooms, nil
+}
+
+func (m *ChatroomModel) GetSearchedChat(email, chatroom string) ([]*Chatroom, error) {
+	stmt := `SELECT id, name, user, private FROM chatrooms
+	WHERE user=? AND name=?`
+
+	rows, err := m.DB.Query(stmt, email, chatroom)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	chatrooms := []*Chatroom{}
+
+	for rows.Next() {
+		cr := &Chatroom{}
+		err := rows.Scan(&cr.ID, &cr.Name, &cr.User, &cr.Private)
+		if err != nil {
+			return nil, err
+		}
+		chatrooms = append(chatrooms, cr)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return chatrooms, nil
+}
