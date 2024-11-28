@@ -1,4 +1,4 @@
-package websocket
+package main
 
 import (
 	"encoding/json"
@@ -19,8 +19,10 @@ const (
 )
 
 type SendMessageEvent struct {
-	Message string `json:"message"`
-	From    string `json:"from"`
+	Message  string `json:"message"`
+	From     string `json:"from"`
+	Email    string `json:"email"`
+	Chatroom string `json:"chatroom"`
 }
 
 type NewMessageEvent struct {

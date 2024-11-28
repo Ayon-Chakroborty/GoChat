@@ -2,14 +2,65 @@ package main
 
 import (
 	"errors"
+	"log"
 	"net/http"
+	"sort"
 	"strings"
+	"time"
 
 	"gochat.ayonchakroborty.net/internal/models"
 	"gochat.ayonchakroborty.net/internal/validator"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+
+	chatrooms, err := app.chatroomModel.GetAllChats(data.Email)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	publicChatrooms := []*models.Chatroom{}
+	privateChatrooms := []*models.Chatroom{}
+
+	for _, cr := range chatrooms {
+		if cr.Private {
+			privateChatrooms = append(privateChatrooms, cr)
+		} else {
+			publicChatrooms = append(publicChatrooms, cr)
+		}
+	}
+
+	data.PublicChatrooms = publicChatrooms
+	data.PrivateChatrooms = privateChatrooms
+
+	for _, room := range data.PublicChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	for _, room := range data.PrivateChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	app.render(w, r, http.StatusOK, "home.html", data)
+}
+
+func (app *application) about(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, http.StatusOK, "about.html", app.newTemplateData(r))
 }
 
@@ -66,6 +117,12 @@ func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 			app.serverError(w, r, err)
 		}
 
+		return
+	}
+
+	err = app.chatroomModel.Insert("general", form.Email, false)
+	if err != nil {
+		app.serverError(w, r, err)
 		return
 	}
 
@@ -138,11 +195,13 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 	username, err := app.userModel.GetUserField("username", form.Email)
 	if err != nil {
 		app.serverError(w, r, err)
+		return
 	}
 
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
 	app.sessionManager.Put(r.Context(), "email", form.Email)
 	app.sessionManager.Put(r.Context(), "username", username)
+	app.sessionManager.Put(r.Context(), "chatroom", "general")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -163,7 +222,25 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) chat(w http.ResponseWriter, r *http.Request) {
-	app.render(w, r, http.StatusOK, "chat.html", app.newTemplateData(r))
+	data := app.newTemplateData(r)
+	chats, err := app.chatModel.Get(data.Chatroom)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	for _, chat := range chats {
+		chat.Created = chat.Created.In(loc)
+	}
+
+	data.Chats = chats
+	app.render(w, r, http.StatusOK, "chat.html", data)
 }
 
 func (app *application) userAccount(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +316,7 @@ func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) 
 		if strings.Compare(field, "email") == 0 {
 			email = val
 			app.sessionManager.Put(r.Context(), "email", val)
-		} else if strings.Compare(field, "username") == 0{
+		} else if strings.Compare(field, "username") == 0 {
 			app.sessionManager.Put(r.Context(), "username", val)
 		}
 	}
@@ -247,5 +324,195 @@ func (app *application) userAccountPost(w http.ResponseWriter, r *http.Request) 
 	app.sessionManager.Put(r.Context(), "flash", "Account info changed successfully!")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
-
 }
+
+type chatRoomForm struct {
+	Chatroom            string `form:"chatroom"`
+	validator.Validator `form:"-"`
+}
+
+func (app *application) chatRoom(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	app.sessionManager.Put(r.Context(), "chatroom", name)
+
+	http.Redirect(w, r, "/chat", http.StatusSeeOther)
+}
+
+func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
+	email := app.sessionManager.GetString(r.Context(), "email")
+
+	if err := r.ParseForm(); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form := chatRoomForm{}
+
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	if !validator.NotBlank(form.Chatroom) {
+		http.Redirect(w, r, "/chat", http.StatusSeeOther)
+		return
+	}
+
+	cr := form.Chatroom
+	private := false
+	if validator.Matches(form.Chatroom, validator.EmailRX) {
+		if strings.Compare(form.Chatroom, email) == 0 {
+			http.Redirect(w, r, "/chat", http.StatusSeeOther)
+			return
+		}
+
+		sorted := []string{email, form.Chatroom}
+		sort.Strings(sorted)
+		cr = "Private chatroom for " + sorted[0] + " and " + sorted[1]
+		private = true
+	}
+
+	_, err := app.chatroomModel.Get(cr, email, private)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			private := false
+			// if the chatroom is a user email then insert 2 times for each user
+			if validator.Matches(form.Chatroom, validator.EmailRX) {
+				private = true
+				err := app.chatroomModel.Insert(cr, form.Chatroom, private)
+				if err != nil {
+					log.Print("Error while inserting new chat room", err)
+					http.Redirect(w, r, "/", http.StatusSeeOther)
+				}
+			}
+			// public chat room
+			err := app.chatroomModel.Insert(cr, email, private)
+			if err != nil {
+				log.Print("Error while inserting new chat room", err)
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+			}
+		} else {
+			app.serverError(w, r, err)
+			return
+		}
+	}
+
+	app.sessionManager.Put(r.Context(), "chatroom", cr)
+
+	http.Redirect(w, r, "/chat", http.StatusSeeOther)
+}
+
+func (app *application) userDeletePost(w http.ResponseWriter, r *http.Request) {
+	email := app.sessionManager.GetString(r.Context(), "email")
+	log.Println("here in userDeletePost")
+	if err := app.sessionManager.RenewToken(r.Context()); err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	// if err := app.chatModel.DeleteUser(email); err != nil {
+	// 	app.serverError(w, r, err)
+	// 	return
+	// }
+
+	// if err := app.chatroomModel.DeleteUser(email); err != nil{
+	// 	app.serverError(w, r, err)
+	// 	return
+	// }
+
+	if err := app.userModel.DeleteUser(email); err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
+	app.sessionManager.Remove(r.Context(), "email")
+	app.sessionManager.Remove(r.Context(), "username")
+	app.sessionManager.Put(r.Context(), "flash", "Your account has been deleted successfully!")
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+type searchForm struct {
+	Search string `form:"search"`
+	validator.Validator
+}
+
+func (app *application) chatSearch(w http.ResponseWriter, r *http.Request) {
+	app.render(w, r, http.StatusSeeOther, "search.html", app.newTemplateData(r))
+}
+
+func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
+	email := app.sessionManager.GetString(r.Context(), "email")
+
+	if err := r.ParseForm(); err != nil{
+		app.clientError(w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	form := searchForm{}
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil{
+		app.clientError(w, http.StatusUnprocessableEntity)
+		return
+	}
+	form.Search = strings.TrimSpace(form.Search)
+
+	if !validator.NotBlank(form.Search){
+		http.Redirect(w, r, "/chat/search", http.StatusSeeOther)
+		return
+	}
+
+	data := app.newTemplateData(r)
+	chatrooms := []*models.Chatroom{}
+	var err error
+
+	if validator.Matches(form.Search, validator.EmailRX){
+		chatrooms, err = app.chatroomModel.SearchUser(email, form.Search)
+	} else {
+		chatrooms, err = app.chatroomModel.GetSearchedChat(email, form.Search)
+	}
+
+	if err != nil{
+		app.serverError(w, r, err)
+		return
+	}
+
+	publicChatrooms := []*models.Chatroom{}
+	privateChatrooms := []*models.Chatroom{}
+
+	for _, cr := range chatrooms {
+		if cr.Private {
+			privateChatrooms = append(privateChatrooms, cr)
+		} else {
+			publicChatrooms = append(publicChatrooms, cr)
+		}
+	}
+
+	data.PublicChatrooms = publicChatrooms
+	data.PrivateChatrooms = privateChatrooms
+
+	for _, room := range data.PublicChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	for _, room := range data.PrivateChatrooms {
+		names, err := app.chatroomModel.GetUsersInChatroom(room.Name, room.Private)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		formattedString := strings.Join(names, ", ")
+		room.AllUsers = formattedString
+	}
+
+	app.render(w, r, http.StatusOK, "search.html", data)
+}
+

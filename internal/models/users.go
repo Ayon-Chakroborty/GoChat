@@ -46,6 +46,12 @@ func (m *UserModel) UpdateField(field, value, email string) error {
 	case "email":
 		stmt = `UPDATE users SET email=? WHERE email=?`
 	case "username":
+		stmt = `UPDATE chats SET username=? WHERE sender=?`
+		_, err := m.DB.Exec(stmt, value, email)
+		if err != nil {
+			return err
+		}
+
 		stmt = `UPDATE users SET username=? WHERE email=?`
 	case "password":
 		stmt = `UPDATE users SET hashed_password=? WHERE email=?`
@@ -129,4 +135,15 @@ func (m *UserModel) Exists(id int) (bool, error) {
 	err := m.DB.QueryRow(stmt, id).Scan(&exists)
 
 	return exists, err
+}
+
+func (m *UserModel) DeleteUser(email string) error {
+	stmt := `DELETE FROM users WHERE email=?`
+
+	_, err := m.DB.Exec(stmt, email)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

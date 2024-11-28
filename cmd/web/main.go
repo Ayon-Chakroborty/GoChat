@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"gochat.ayonchakroborty.net/internal/models"
-	"gochat.ayonchakroborty.net/internal/websocket"
 
 	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
@@ -22,10 +21,12 @@ import (
 type application struct {
 	logger         *slog.Logger
 	userModel      *models.UserModel
+	chatModel      *models.ChatModel
+	chatroomModel  *models.ChatroomModel
 	templateCache  map[string]*template.Template
 	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
-	wsManager      *websocket.Manager
+	wsManager      *Manager
 }
 
 func main() {
@@ -59,11 +60,15 @@ func main() {
 	app := application{
 		logger:         logger,
 		userModel:      &models.UserModel{DB: db},
+		chatModel:      &models.ChatModel{DB: db},
+		chatroomModel:  &models.ChatroomModel{DB: db},
 		templateCache:  templateCache,
 		formDecoder:    formDecoder,
 		sessionManager: sessionManager,
-		wsManager:      websocket.NewManager(),
 	}
+
+	app.wsManager = app.NewManager()
+	app.setupEventHandlers()
 
 	tlsConfig := &tls.Config{
 		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},

@@ -1,0 +1,53 @@
+{{define "title"}}Search{{end}}
+
+{{define "main"}}
+    <form action="/chat/search" method="POST"  novalidate>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <div>
+            <input type="text" name="search" placeholder="Search for a chatroom or user email">
+        </div> 
+        <div>
+            <input type="submit" value="Search">
+        </div>     
+    </form>
+    <br>
+    <br>
+    <h2>Search Results</h2>
+    {{if .PublicChatrooms}}
+        <h3>Public Chatrooms</h3>
+        <table>
+            <tr>
+                <th>Chatroom</th>
+                <th>Users In This Chatroom</th>
+            </tr> 
+            {{range .PublicChatrooms}}
+                <tr>
+                    <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
+                    <td>{{.AllUsers}}</td>
+                </tr> 
+            {{end}}
+        </table>
+    {{end}}
+    <br>
+    <br>
+    <br>
+    {{if .PrivateChatrooms}}
+        <h3>Private Chatrooms</h3>
+        <table>
+            <tr>
+                <th>Chatroom</th>
+                <th>Users In This Chatroom</th>
+            </tr> 
+            {{range .PrivateChatrooms}}
+                <tr>
+                    <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
+                    <td>{{.AllUsers}}</td>
+                </tr> 
+            {{end}}
+        </table>
+    {{else if .PublicChatrooms}}
+        <!--Ignore this-->
+    {{else}}
+        <p>No results were found</p>
+    {{end}}
+{{end}}

@@ -3,14 +3,15 @@
 {{define "main"}}
 <div class="center">
     <h1>Amazing Chat Application</h1>
-    <h3 id="chat-header">Currently in chat: general</h3>
+    <h3 id="chat-header">Currently in chat: {{.Chatroom}}</h3>
 
     <!--
     Here is a form that allows us to select what Chatroom to be in
     -->
-    <form id="chatroom-selection">
-        <label for="chatroom">Chatroom:</label>
-        <input type="text" id="chatroom" name="chatroom"><br><br>
+    <form id="chatroom-selection" action="/chat/room" method="POST" novalidate>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <label>Chatroom:</label>
+        <input type="text" name="chatroom"><br><br>
         <input type="submit" value="Change chatroom">
     </form>
 
@@ -19,14 +20,23 @@
     Textarea to show messages from users
     -->
     <textarea class="messagearea" id="chatmessages" readonly name="chatmessages" rows="4" cols="50"
-        placeholder="Welcome to the general chatroom, here messages from others will appear"></textarea>
+        placeholder="Welcome to the general chatroom, here messages from others will appear">
+{{if .Chats}}        
+{{range .Chats}} 
+{{humanDate .Created}} {{.Username}}: {{.Message}}
+{{end}}
+                ------------------ Previous Messages ------------------
+{{end}}
+    </textarea>
 
     <br>
     <!--
     Chatroom-message form is used to send messages
     -->
     <form id="chatroom-message">
-        <input type="text" id="username" value="{{.Username}}">
+        <input type="hidden" id="username" value="{{.Username}}">
+        <input type="hidden" id="email" value="{{.Email}}">
+        <input type="hidden" id="chatroom" value="{{.Chatroom}}">
         <label for="message">Message:</label>
         <input type="text" id="message" name="message"><br><br>
         <input type="submit" value="Send message">
@@ -36,7 +46,7 @@
 <script type="text/javascript">
 
     // selectedchat is by default General.
-    var selectedchat = "general";
+    // var selectedchatroom = document.getElementById("chatroom");
 
     class Event {
         constructor(type, payload){
@@ -46,9 +56,11 @@
     }
 
     class SendMessageEvent {
-        constructor(message, from){
+        constructor(message, from, email, chatroom){
             this.message = message;
             this.from = from;
+            this.email = email;
+            this.chatroom = chatroom
         }
     }
 
@@ -66,23 +78,14 @@
         }
     }
 
-    function changeChatRoom(){
-        var newchat = document.getElementById("chatroom");
-        if (newchat != null && newchat.value != selectedchat){
-            selectedchat = newchat.value;
-            header = document.getElementById("chat-header");
-            header.innerHTML = "Currently in chatroom: " + selectedchat;
+    // function changeChatRoom(){
+    //     var newchatroom = document.getElementById("chatroom");
+    //     if (newchatroom != null && newchatroom.value != "" && newchatroom.value != selectedchatroom.value){
+    //         return true
+    //     }
 
-            let changeEvent = new ChangeChatRoomEvent(selectedchat);
-
-            sendEvent("change_room", changeEvent);
-
-            textarea = document.getElementById("chatmessages");
-            textarea.innerHTML = `You changed room into: ${selectedchat}`;
-        }
-
-        return false;
-    }
+    //     return false;
+    // }
 
     function routeEvent(event){
         if (event.type === undefined) {
@@ -103,7 +106,7 @@
     function appendChatMessage(messageEvent){
         var date = new Date(messageEvent.sent);
         //from = document.getElementById("username")
-        const formattedMsg = `${date.toLocaleString().substring(0,10)} ${messageEvent.from}: ${messageEvent.message}`;
+        const formattedMsg = `${date.toLocaleString("en-US").substring(0,10)} ${messageEvent.from}: ${messageEvent.message}\n`;
 
         textarea = document.getElementById('chatmessages');
         textarea.innerHTML = textarea.innerHTML + "\n" + formattedMsg;
@@ -119,10 +122,12 @@
      * sendMessage will send a new message onto the Websocket
      * */
     function sendMessage() {
-        from = document.getElementById("username")
+        var from = document.getElementById("username");
+        var email = document.getElementById("email");
+        var chatroom = document.getElementById("chatroom");
         var newmessage = document.getElementById("message");
         if (newmessage != null) {
-            let outgoingEvent = new SendMessageEvent(newmessage.value, from.value);
+            let outgoingEvent = new SendMessageEvent(newmessage.value, from.value, email.value, chatroom.value);
             sendEvent("send_message", outgoingEvent);
         }
         return false;
@@ -133,7 +138,7 @@
     window.onload = function () {
         // Apply our listener functions to the submit event on both forms
         // we do it this way to avoid redirects
-        document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
+        //document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
         document.getElementById("chatroom-message").onsubmit = sendMessage;
 
         // Check if the browser supports WebSocket

@@ -1,8 +1,9 @@
-package websocket
+package main
 
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,23 +23,23 @@ type Client struct {
 	manager    *Manager
 
 	chatroom string
-	// egress is used to aboid concurrent writes on the websocket connection
+	// egress is used to avoid concurrent writes on the websocket connection
 	egress chan Event
 }
 
-func NewClient(conn *websocket.Conn, manager *Manager) *Client {
+func (app *application) NewClient(r *http.Request, conn *websocket.Conn, manager *Manager) *Client {
 	return &Client{
 		connection: conn,
 		manager:    manager,
-		chatroom:   "general",
+		chatroom:   app.sessionManager.GetString(r.Context(), "chatroom"),
 		egress:     make(chan Event),
 	}
 }
 
-func (c *Client) readMessages() {
+func (app *application) readMessages(c *Client) {
 	defer func() {
 		// cleanup connection
-		c.manager.removeClient(c)
+		app.removeClient(c)
 	}()
 
 	// configer wait time for pong response
@@ -76,9 +77,9 @@ func (c *Client) readMessages() {
 	}
 }
 
-func (c *Client) writeMessages() {
+func (app *application) writeMessages(c *Client) {
 	defer func() {
-		c.manager.removeClient(c)
+		app.removeClient(c)
 	}()
 
 	ticker := time.NewTicker(pingIntegerval)
