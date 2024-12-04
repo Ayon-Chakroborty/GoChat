@@ -367,6 +367,19 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		exists, err := app.userModel.EmailExists(form.Chatroom)
+		if err != nil{
+			app.serverError(w, r, err)
+			return
+		}
+
+		if !exists{
+			flash := fmt.Sprintf("User '%s' does not exist", form.Chatroom)
+			app.sessionManager.Put(r.Context(), "flash", flash)
+			http.Redirect(w, r, "/chat", http.StatusSeeOther)
+			return
+		}
+
 		sorted := []string{email, form.Chatroom}
 		sort.Strings(sorted)
 		cr = "Private chatroom for " + sorted[0] + " and " + sorted[1]
