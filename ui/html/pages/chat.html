@@ -42,6 +42,13 @@
         <input type="submit" value="Send message">
     </form>
 </div>
+<br>
+<div>
+    <form action="/chat/leave" method="POST" onsubmit="return confirm('Confirm to leave chatroom');" novalidate>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="submit" value="Leave Chatroom" >
+    </form>
+</div>
 
 <script type="text/javascript">
 

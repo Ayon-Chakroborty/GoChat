@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -514,5 +515,19 @@ func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
 	}
 
 	app.render(w, r, http.StatusOK, "search.html", data)
+}
+
+func (app *application) chatLeavePost(w http.ResponseWriter, r *http.Request){
+	email := app.sessionManager.GetString(r.Context(), "email")
+	chatroom := app.sessionManager.GetString(r.Context(), "chatroom")
+
+	if err := app.chatroomModel.Delete(chatroom, email); err != nil{
+		app.serverError(w, r, err)
+		return
+	}
+
+	flash := fmt.Sprintf("Left Chatroom '%s'", chatroom)
+	app.sessionManager.Put(r.Context(), "flash", flash)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

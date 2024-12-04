@@ -30,6 +30,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /chat/room/{name}", protected.ThenFunc(app.chatRoom))
 	mux.Handle("GET /chat/search", protected.ThenFunc(app.chatSearch))
 	mux.Handle("POST /chat/search", protected.ThenFunc(app.chatSearchPost))
+	mux.Handle("POST /chat/leave", protected.ThenFunc(app.chatLeavePost))
 	mux.Handle("GET /user/account", protected.ThenFunc(app.userAccount))
 	mux.Handle("POST /user/account", protected.ThenFunc(app.userAccountPost))
 	mux.Handle("POST /user/delete", protected.ThenFunc(app.userDeletePost))

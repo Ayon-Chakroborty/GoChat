@@ -46,6 +46,17 @@ func (m *ChatroomModel) Get(chatroom string, email string, private bool) (*Chatr
 	return cr, nil
 }
 
+func (m *ChatroomModel) Delete(chatroom, email string) error{
+	stmt := `DELETE FROM chatrooms WHERE name=? AND user=?`
+
+	_, err := m.DB.Exec(stmt, chatroom, email)
+	if err != nil{
+		return err
+	}
+
+	return nil
+}
+
 func (m *ChatroomModel) GetAllChats(email string) ([]*Chatroom, error) {
 	stmt := `SELECT id, name, user, private FROM chatrooms
 	WHERE user = ?`
