@@ -137,6 +137,15 @@ func (m *UserModel) Exists(id int) (bool, error) {
 	return exists, err
 }
 
+func (m *UserModel) EmailExists(email string) (bool, error) {
+	var exists bool
+
+	stmt := "SELECT EXISTS(SELECT true FROM users WHERE email = ?)"
+	err := m.DB.QueryRow(stmt, email).Scan(&exists)
+
+	return exists, err
+}
+
 func (m *UserModel) DeleteUser(email string) error {
 	stmt := `DELETE FROM users WHERE email=?`
 
