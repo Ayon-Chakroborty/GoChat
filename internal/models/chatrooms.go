@@ -178,3 +178,29 @@ func (m *ChatroomModel) GetSearchedChat(email, chatroom string) ([]*Chatroom, er
 
 	return chatrooms, nil
 }
+
+func (m *ChatroomModel) GetUsersList(chatroom string) ([]string, error) {
+	stmt := `SELECT user FROM chatrooms WHERE name=?`
+
+	rows, err := m.DB.Query(stmt, chatroom)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	names := []string{}
+
+	for rows.Next() {
+		n := ""
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names = append(names, n)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
