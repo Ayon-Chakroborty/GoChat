@@ -44,6 +44,10 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		}
 
 		formattedString := strings.Join(names, ", ")
+		if len(formattedString) > 30{
+			formattedString = formattedString[:30]
+			formattedString += "..."
+		}
 		room.AllUsers = formattedString
 	}
 
@@ -424,19 +428,23 @@ func (app *application) userDeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if err := app.chatModel.DeleteUser(email); err != nil {
-	// 	app.serverError(w, r, err)
-	// 	return
-	// }
-
-	// if err := app.chatroomModel.DeleteUser(email); err != nil{
-	// 	app.serverError(w, r, err)
-	// 	return
-	// }
+	names, err := app.chatroomModel.UserPrivateChatroom(email)
+	if err != nil{
+		app.serverError(w, r, err)
+		return
+	}
 
 	if err := app.userModel.DeleteUser(email); err != nil {
 		app.serverError(w, r, err)
 		return
+	}
+
+	for n := range names {
+		log.Println("name", n)		
+		if err := app.chatroomModel.DeletePrivateCR(n); err != nil{
+			app.serverError(w, r, err)
+			return
+		} 
 	}
 
 	app.sessionManager.Remove(r.Context(), "authenticatedUserID")

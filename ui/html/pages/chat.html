@@ -23,7 +23,7 @@
         placeholder="Welcome to the general chatroom, here messages from others will appear">
 {{if .Chats}}        
 {{range .Chats}} 
-{{humanDate .Created}} {{.Username}}: {{.Message}}
+{{humanDate .Created}}, {{.Username}}: {{.Message}}
 {{end}}
                 ------------------ Previous Messages ------------------
 {{end}}

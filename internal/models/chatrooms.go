@@ -112,10 +112,10 @@ func (m *ChatroomModel) GetUsersInChatroom(chatroom string, private bool) ([]str
 	return names, nil
 }
 
-func (m *ChatroomModel) DeleteUser(email string) error {
-	stmt := `DELETE FROM chatrooms WHERE user=?`
+func (m *ChatroomModel) DeletePrivateCR(name string) error {
+	stmt := `DELETE FROM chatrooms WHERE name=?`
 
-	_, err := m.DB.Exec(stmt, email)
+	_, err := m.DB.Exec(stmt, name)
 	if err != nil {
 		return err
 	}
@@ -196,6 +196,32 @@ func (m *ChatroomModel) GetUsersList(chatroom string) ([]string, error) {
 			return nil, err
 		}
 		names = append(names, n)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
+
+func (m *ChatroomModel) UserPrivateChatroom(email string) (map[string]bool, error){
+	stmt := `SELECT name FROM chatrooms WHERE user=? AND private=1`
+
+	rows, err := m.DB.Query(stmt, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	names := map[string]bool{}
+
+	for rows.Next() {
+		n := ""
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names[n] = true
 	}
 
 	if err = rows.Err(); err != nil {
