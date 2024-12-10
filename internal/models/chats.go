@@ -9,7 +9,6 @@ type Chat struct {
 	ID       int
 	Chatroom string
 	Sender   string
-	Private  bool
 	Message  string
 	Created  time.Time
 	Username string
@@ -19,11 +18,11 @@ type ChatModel struct {
 	DB *sql.DB
 }
 
-func (m *ChatModel) Insert(chatroom string, sender string, private bool, message string, username string) error {
-	stmt := `INSERT INTO chats (chatroom, sender, private, message, created, username) 
-	VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), ?)`
+func (m *ChatModel) Insert(chatroom string, sender string, message string, username string) error {
+	stmt := `INSERT INTO chats (chatroom, sender, message, created, username) 
+	VALUES (?, ?, ?, UTC_TIMESTAMP(), ?)`
 
-	_, err := m.DB.Exec(stmt, chatroom, sender, private, message, username)
+	_, err := m.DB.Exec(stmt, chatroom, sender, message, username)
 	if err != nil {
 		return err
 	}
@@ -43,7 +42,7 @@ func (m *ChatModel) Get(chatroom string) ([]*Chat, error) {
 	chats := []*Chat{}
 	for rows.Next() {
 		c := &Chat{}
-		err = rows.Scan(&c.ID, &c.Chatroom, &c.Sender, &c.Private, &c.Message, &c.Created, &c.Username)
+		err = rows.Scan(&c.ID, &c.Chatroom, &c.Sender, &c.Message, &c.Created, &c.Username)
 		if err != nil {
 			return nil, err
 		}
