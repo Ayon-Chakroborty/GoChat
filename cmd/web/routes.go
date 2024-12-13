@@ -34,6 +34,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /user/account", protected.ThenFunc(app.userAccount))
 	mux.Handle("POST /user/account", protected.ThenFunc(app.userAccountPost))
 	mux.Handle("POST /user/delete", protected.ThenFunc(app.userDeletePost))
+	mux.Handle("GET /user/list/{name}", protected.ThenFunc(app.usersList))
 
 	// websocket handler
 	mux.Handle("/ws", protected.ThenFunc(app.ServeWS))

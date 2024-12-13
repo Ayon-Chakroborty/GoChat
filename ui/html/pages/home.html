@@ -12,7 +12,7 @@
             {{range .PublicChatrooms}}
                 <tr>
                     <td><a href="/chat/room/{{.Name}}">{{.Name}}</a></td>
-                    <td>{{.AllUsers}}</td>
+                    <td><a href="/user/list/{{.Name}}">{{.AllUsers}}</a></td>
                 </tr> 
             {{end}}
         </table>

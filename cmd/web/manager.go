@@ -79,7 +79,7 @@ func (app *application) SendMessage(event Event, c *Client) error {
 
 	if broadMessage.Message != "" {
 		c.chatroom = broadMessage.Chatroom
-		err = app.chatModel.Insert(broadMessage.Chatroom, broadMessage.Email, false, broadMessage.Message, broadMessage.From)
+		err = app.chatModel.Insert(broadMessage.Chatroom, broadMessage.Email, broadMessage.Message, broadMessage.From)
 		if err != nil {
 			return fmt.Errorf("failed to save broadcast message : %v", err)
 		}

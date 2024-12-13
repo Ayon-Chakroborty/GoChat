@@ -1,0 +1,15 @@
+{{define "title"}}Users In This Chatroom{{end}}
+
+{{define "main"}}
+    <h2>All Users In {{.Chatroom}}</h2>
+    <table>
+        <tr>
+            <th>Users In This Chatroom</th>
+        </tr> 
+        {{range .UsersList}}
+            <tr>
+                <td>{{.}}</td>
+            </tr> 
+        {{end}}
+    </table>
+{{end}}

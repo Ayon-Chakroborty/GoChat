@@ -44,6 +44,10 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		}
 
 		formattedString := strings.Join(names, ", ")
+		if len(formattedString) > 30{
+			formattedString = formattedString[:30]
+			formattedString += "..."
+		}
 		room.AllUsers = formattedString
 	}
 
@@ -368,12 +372,12 @@ func (app *application) chatRoomPost(w http.ResponseWriter, r *http.Request) {
 		}
 
 		exists, err := app.userModel.EmailExists(form.Chatroom)
-		if err != nil{
+		if err != nil {
 			app.serverError(w, r, err)
 			return
 		}
 
-		if !exists{
+		if !exists {
 			flash := fmt.Sprintf("User '%s' does not exist", form.Chatroom)
 			app.sessionManager.Put(r.Context(), "flash", flash)
 			http.Redirect(w, r, "/chat", http.StatusSeeOther)
@@ -424,19 +428,23 @@ func (app *application) userDeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if err := app.chatModel.DeleteUser(email); err != nil {
-	// 	app.serverError(w, r, err)
-	// 	return
-	// }
-
-	// if err := app.chatroomModel.DeleteUser(email); err != nil{
-	// 	app.serverError(w, r, err)
-	// 	return
-	// }
+	names, err := app.chatroomModel.UserPrivateChatroom(email)
+	if err != nil{
+		app.serverError(w, r, err)
+		return
+	}
 
 	if err := app.userModel.DeleteUser(email); err != nil {
 		app.serverError(w, r, err)
 		return
+	}
+
+	for n := range names {
+		log.Println("name", n)		
+		if err := app.chatroomModel.DeletePrivateCR(n); err != nil{
+			app.serverError(w, r, err)
+			return
+		} 
 	}
 
 	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
@@ -456,22 +464,22 @@ func (app *application) chatSearch(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, http.StatusSeeOther, "search.html", app.newTemplateData(r))
 }
 
-func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
+func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request) {
 	email := app.sessionManager.GetString(r.Context(), "email")
 
-	if err := r.ParseForm(); err != nil{
+	if err := r.ParseForm(); err != nil {
 		app.clientError(w, http.StatusUnprocessableEntity)
 		return
 	}
 
 	form := searchForm{}
-	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil{
+	if err := app.formDecoder.Decode(&form, r.PostForm); err != nil {
 		app.clientError(w, http.StatusUnprocessableEntity)
 		return
 	}
 	form.Search = strings.TrimSpace(form.Search)
 
-	if !validator.NotBlank(form.Search){
+	if !validator.NotBlank(form.Search) {
 		http.Redirect(w, r, "/chat/search", http.StatusSeeOther)
 		return
 	}
@@ -480,13 +488,13 @@ func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
 	chatrooms := []*models.Chatroom{}
 	var err error
 
-	if validator.Matches(form.Search, validator.EmailRX){
+	if validator.Matches(form.Search, validator.EmailRX) {
 		chatrooms, err = app.chatroomModel.SearchUser(email, form.Search)
 	} else {
 		chatrooms, err = app.chatroomModel.GetSearchedChat(email, form.Search)
 	}
 
-	if err != nil{
+	if err != nil {
 		app.serverError(w, r, err)
 		return
 	}
@@ -530,11 +538,11 @@ func (app *application) chatSearchPost(w http.ResponseWriter, r *http.Request){
 	app.render(w, r, http.StatusOK, "search.html", data)
 }
 
-func (app *application) chatLeavePost(w http.ResponseWriter, r *http.Request){
+func (app *application) chatLeavePost(w http.ResponseWriter, r *http.Request) {
 	email := app.sessionManager.GetString(r.Context(), "email")
 	chatroom := app.sessionManager.GetString(r.Context(), "chatroom")
 
-	if err := app.chatroomModel.Delete(chatroom, email); err != nil{
+	if err := app.chatroomModel.Delete(chatroom, email); err != nil {
 		app.serverError(w, r, err)
 		return
 	}
@@ -544,3 +552,17 @@ func (app *application) chatLeavePost(w http.ResponseWriter, r *http.Request){
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (app *application) usersList(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	users, err := app.chatroomModel.GetUsersList(name)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	data := app.newTemplateData(r)
+	data.UsersList = users
+	data.Chatroom = name
+	app.render(w, r, http.StatusOK, "usersList.html", data)
+
+}
